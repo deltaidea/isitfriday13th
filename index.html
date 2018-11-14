@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>Is it Friday the 13th?</title>
+  <style>
+    .block {
+      margin: 20vh auto 20px auto;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <h1 class="block result">Checking...</h1>
+  <p class="result-details"></p>
+  <p>
+    This page is for those of us who do not trust machines.
+  </p>
+  <p>
+    It works by checking the last post on <a href="https://www.reddit.com/r/IsTodayFridayThe13th">/r/IsTodayFridayThe13th</a> where a human posts "Yes" or "No" every day.
+  </p>
+  <p>
+    To be absolutely sure, it also checks the last post on <a href="https://www.reddit.com/r/FridayThe13thReviewer">/r/FridayThe13thReviewer</a> where another human reviews the answer and posts "Correct" or "Incorrect". Every day.
+  </p>
+  <script>
+    async function main() {
+      const info = await getFridayInfo()
+      const result = info.isFriday13th ? 'Yes, today is Friday the 13th.' : 'No, today is not Friday the 13th.'
+      const details =
+        (`<a href="${info.lastPost.url}">Last checked by /u/${info.lastPost.author}</a> on ${info.lastPost.date.toGMTString()}. `) +
+        (info.isConfirmed
+          ? `<a href="${info.lastConfirmPost.url}">Confirmed by /u/${info.lastConfirmPost.author}</a> on ${info.lastConfirmPost.date.toGMTString()}.`
+          : 'Not confirmed yet.')
+
+      document.querySelector('.result').innerHTML = result
+      document.querySelector('.result-details').innerHTML = details
+    }
+
+    main()
+
+    async function getFridayInfo() {
+      const lastPost = await getLastPostInSubreddit('IsTodayFridayThe13th')
+      const lastConfirmPost = await getLastPostInSubreddit('FridayThe13thReviewer')
+      return {
+        isFriday13th: /no/i.test(lastPost.test),
+        isConfirmed:
+          lastConfirmPost.referencedUrl.startsWith(lastPost.url) &&
+          /\bcorrect/i.test(lastConfirmPost.title) &&
+          !/not/i.test(lastConfirmPost.title),
+        lastPost,
+        lastConfirmPost,
+      }
+    }
+
+    async function getLastPostInSubreddit(sub) {
+      const req = await fetch(`https://www.reddit.com/r/${sub}/new.json`)
+      const res = await req.json()
+      const lastPost = res.data.children[0].data
+
+      return {
+        author: lastPost.author,
+        date: new Date(lastPost.created * 1000),
+        text: lastPost.selftext,
+        title: lastPost.title,
+        referencedUrl: lastPost.url,
+        url: `https://www.reddit.com${lastPost.permalink}`,
+        raw: lastPost
+      }
+    }
+  </script>
+</body>
+</html>
